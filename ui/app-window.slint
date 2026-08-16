@@ -1,0 +1,205 @@
+// VeilOS sysinfo — page scroller UI
+// TWM / OneShot palette
+
+export global Palette {
+    out property <color> bg-top: #1a0f2e;
+    out property <color> bg-bottom: #08040f;
+    out property <color> accent: #8a6bc4;
+    out property <color> fg: #efe6ff;
+    out property <color> fg-dim: #b8a8d9;
+}
+
+component InfoRow {
+    in property <string> label;
+    in property <string> value;
+
+    HorizontalLayout {
+        spacing: 12px;
+        Text {
+            text: label;
+            color: Palette.fg-dim;
+            font-size: 14px;
+            width: 140px;
+        }
+        Text {
+            text: value;
+            color: Palette.fg;
+            font-size: 14px;
+            font-weight: 600;
+        }
+    }
+}
+
+component PageDot {
+    in property <bool> active;
+    Rectangle {
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: active ? Palette.accent : Palette.fg-dim.with-alpha(0.3);
+        animate background { duration: 150ms; }
+    }
+}
+
+component SystemPage inherits VerticalLayout {
+    in property <string> os-name;
+    in property <string> kernel;
+    in property <string> hostname;
+    in property <string> uptime;
+    in property <string> pkg-count;
+
+    spacing: 10px;
+    padding: 24px;
+
+    Text {
+        text: "System";
+        color: Palette.accent;
+        font-size: 20px;
+        font-weight: 700;
+    }
+    InfoRow { label: "OS"; value: os-name; }
+    InfoRow { label: "Kernel"; value: kernel; }
+    InfoRow { label: "Host"; value: hostname; }
+    InfoRow { label: "Uptime"; value: uptime; }
+    InfoRow { label: "Packages"; value: pkg-count; }
+}
+
+component VeilPage inherits VerticalLayout {
+    in property <string> session-mode;
+    in property <string> encode-tier;
+    in property <string> output-count;
+    in property <string> compositor-version;
+
+    spacing: 10px;
+    padding: 24px;
+
+    Text {
+        text: "Veil Session";
+        color: Palette.accent;
+        font-size: 20px;
+        font-weight: 700;
+    }
+    InfoRow { label: "Mode"; value: session-mode; }
+    InfoRow { label: "Encode tier"; value: encode-tier; }
+    InfoRow { label: "Outputs"; value: output-count; }
+    InfoRow { label: "veil-compositor"; value: compositor-version; }
+}
+
+export component AppWindow inherits Window {
+    title: "VeilOS Sysinfo";
+    width: 480px;
+    height: 340px;
+    background: @linear-gradient(180deg, Palette.bg-top 0%, Palette.bg-bottom 100%);
+
+    // Wire real data in from Rust via these properties.
+    in property <string> os-name: "VeilOS";
+    in property <string> kernel: "-";
+    in property <string> hostname: "-";
+    in property <string> uptime: "-";
+    in property <string> pkg-count: "-";
+
+    in property <string> session-mode: "-";
+    in property <string> encode-tier: "-";
+    in property <string> output-count: "-";
+    in property <string> compositor-version: "-";
+
+    property <int> page-count: 2;
+    property <int> current-index: 0;
+
+    callback next-page();
+    callback prev-page();
+
+    next-page() => {
+        current-index = min(current-index + 1, page-count - 1);
+    }
+    prev-page() => {
+        current-index = max(current-index - 1, 0);
+    }
+
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.RightArrow) {
+                root.next-page();
+                accept
+            } else if (event.text == Key.LeftArrow) {
+                root.prev-page();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            Rectangle {
+                clip: true;
+                height: parent.height - 60px;
+
+                // Horizontal track holding both pages side by side.
+                Rectangle {
+                    x: -current-index * root.width;
+                    width: root.page-count * root.width;
+                    height: parent.height;
+                    animate x { duration: 220ms; easing: ease-in-out; }
+
+                    HorizontalLayout {
+                        SystemPage {
+                            width: root.width;
+                            os-name: root.os-name;
+                            kernel: root.kernel;
+                            hostname: root.hostname;
+                            uptime: root.uptime;
+                            pkg-count: root.pkg-count;
+                        }
+                        VeilPage {
+                            width: root.width;
+                            session-mode: root.session-mode;
+                            encode-tier: root.encode-tier;
+                            output-count: root.output-count;
+                            compositor-version: root.compositor-version;
+                        }
+                    }
+                }
+            }
+
+            // Nav bar: Back / dots / Next
+            HorizontalLayout {
+                height: 60px;
+                padding: 16px;
+                alignment: space-between;
+
+                Rectangle {
+                    width: 70px;
+                    TouchArea {
+                        clicked => { root.prev-page(); }
+                    }
+                    Text {
+                        text: "< Back";
+                        color: current-index == 0 ? Palette.fg-dim.with-alpha(0.4) : Palette.fg;
+                        vertical-alignment: center;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: center;
+                    for i in root.page-count: PageDot {
+                        active: i == current-index;
+                    }
+                }
+
+                Rectangle {
+                    width: 70px;
+                    TouchArea {
+                        clicked => { root.next-page(); }
+                    }
+                    Text {
+                        text: "Next >";
+                        color: current-index == page-count - 1 ? Palette.fg-dim.with-alpha(0.4) : Palette.fg;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                    }
+                }
+            }
+        }
+    }
+}
