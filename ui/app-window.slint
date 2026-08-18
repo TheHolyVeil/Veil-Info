@@ -1,5 +1,7 @@
-// VeilOS sysinfo — page scroller UI
+// Veil info — page scroller UI (docs / design notes for the Veil project)
 // TWM / OneShot palette
+
+import { ScrollView } from "std-widgets.slint";
 
 export global Palette {
     out property <color> bg-top: #1a0f2e;
@@ -9,25 +11,9 @@ export global Palette {
     out property <color> fg-dim: #b8a8d9;
 }
 
-component InfoRow {
-    in property <string> label;
-    in property <string> value;
-
-    HorizontalLayout {
-        spacing: 12px;
-        Text {
-            text: label;
-            color: Palette.fg-dim;
-            font-size: 14px;
-            width: 140px;
-        }
-        Text {
-            text: value;
-            color: Palette.fg;
-            font-size: 14px;
-            font-weight: 600;
-        }
-    }
+export struct DocEntry {
+    title: string,
+    body: string,
 }
 
 component PageDot {
@@ -41,69 +27,46 @@ component PageDot {
     }
 }
 
-component SystemPage inherits VerticalLayout {
-    in property <string> os-name;
-    in property <string> kernel;
-    in property <string> hostname;
-    in property <string> uptime;
-    in property <string> pkg-count;
+component DocPage inherits Rectangle {
+    in property <string> title;
+    in property <string> body;
 
-    spacing: 10px;
-    padding: 24px;
+    VerticalLayout {
+        padding: 24px;
+        spacing: 12px;
 
-    Text {
-        text: "System";
-        color: Palette.accent;
-        font-size: 20px;
-        font-weight: 700;
+        Text {
+            text: title;
+            color: Palette.accent;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        ScrollView {
+            viewport-width: self.width;
+            viewport-height: body-text.preferred-height;
+
+            body-text := Text {
+                text: body;
+                color: Palette.fg;
+                font-size: 14px;
+                wrap: word-wrap;
+                width: parent.width - 16px;
+            }
+        }
     }
-    InfoRow { label: "OS"; value: os-name; }
-    InfoRow { label: "Kernel"; value: kernel; }
-    InfoRow { label: "Host"; value: hostname; }
-    InfoRow { label: "Uptime"; value: uptime; }
-    InfoRow { label: "Packages"; value: pkg-count; }
-}
-
-component VeilPage inherits VerticalLayout {
-    in property <string> session-mode;
-    in property <string> encode-tier;
-    in property <string> output-count;
-    in property <string> compositor-version;
-
-    spacing: 10px;
-    padding: 24px;
-
-    Text {
-        text: "Veil Session";
-        color: Palette.accent;
-        font-size: 20px;
-        font-weight: 700;
-    }
-    InfoRow { label: "Mode"; value: session-mode; }
-    InfoRow { label: "Encode tier"; value: encode-tier; }
-    InfoRow { label: "Outputs"; value: output-count; }
-    InfoRow { label: "veil-compositor"; value: compositor-version; }
 }
 
 export component AppWindow inherits Window {
-    title: "VeilOS Sysinfo";
-    width: 480px;
-    height: 340px;
+    title: "Veil";
+    width: 560px;
+    height: 420px;
     background: @linear-gradient(180deg, Palette.bg-top 0%, Palette.bg-bottom 100%);
 
-    // Wire real data in from Rust via these properties.
-    in property <string> os-name: "VeilOS";
-    in property <string> kernel: "-";
-    in property <string> hostname: "-";
-    in property <string> uptime: "-";
-    in property <string> pkg-count: "-";
+    // Content lives in Rust (main.rs) — recompile to edit. See DocEntry.
+    in property <[DocEntry]> pages: [];
 
-    in property <string> session-mode: "-";
-    in property <string> encode-tier: "-";
-    in property <string> output-count: "-";
-    in property <string> compositor-version: "-";
-
-    property <int> page-count: 2;
+    property <int> page-count: pages.length;
     property <int> current-index: 0;
 
     callback next-page();
@@ -142,20 +105,10 @@ export component AppWindow inherits Window {
                     animate x { duration: 220ms; easing: ease-in-out; }
 
                     HorizontalLayout {
-                        SystemPage {
+                        for page[i] in root.pages: DocPage {
                             width: root.width;
-                            os-name: root.os-name;
-                            kernel: root.kernel;
-                            hostname: root.hostname;
-                            uptime: root.uptime;
-                            pkg-count: root.pkg-count;
-                        }
-                        VeilPage {
-                            width: root.width;
-                            session-mode: root.session-mode;
-                            encode-tier: root.encode-tier;
-                            output-count: root.output-count;
-                            compositor-version: root.compositor-version;
+                            title: page.title;
+                            body: page.body;
                         }
                     }
                 }
